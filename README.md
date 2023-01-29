@@ -13,6 +13,10 @@ Uptime Kuma is an easy-to-use self-hosted monitoring tool, and this project is a
 
 <img src="https://user-images.githubusercontent.com/1336778/212262296-e6205815-ad62-488c-83ec-a5b0d0689f7c.jpg" width="700" alt="" />
 
+## Launch on Blocklet Server
+
+[![Launch on Blocklet Server](https://assets.arcblock.io/icons/launch_on_blocklet_server.svg)](https://install.arcblock.io/launch?action=blocklet-install&meta_url=https%3A%2F%2Fgithub.com%2Fblocklet%2Fuptime-kuma-blocklet%2Freleases%2Fdownload%2Fv1.19.7%2Fblocklet.json)
+
 ## 🥔 Live Demo
 
 Try it!
