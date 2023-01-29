@@ -1644,7 +1644,7 @@ async function afterLogin(socket, user) {
  * @returns {Promise<void>}
  */
 async function initDatabase(testMode = false) {
-    if (! fs.existsSync(Database.path)) {
+    if (! fs.existsSync(Database.path) && fs.existsSync(Database.templatePath)) {
         log.info("server", "Copying Database");
         fs.copyFileSync(Database.templatePath, Database.path);
     }

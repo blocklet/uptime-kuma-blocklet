@@ -748,6 +748,7 @@ class Monitor extends BeanModel {
 
             log.debug("monitor", `[${this.name}] Send to socket`);
             UptimeCacheList.clearCache(this.id);
+            log.debug("info", bean);
             io.to(this.user_id).emit("heartbeat", bean.toJSON());
             Monitor.sendStats(io, this.id, this.user_id);
 

@@ -15,6 +15,7 @@ files:
   - screenshots
   - dist
   - server/jobs
+  - server/model
 interfaces:
   - type: web
     name: publicUrl

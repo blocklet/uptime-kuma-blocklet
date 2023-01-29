@@ -24,7 +24,7 @@ jobs:
           skip-upload: false
           skip-deploy: true
           bundle-command: npm run bundle
-          store-endpoint: ${{ secrets.STORE_ENDPOINT }}
-          store-access-token: ${{ secrets.STORE_ACCESS_TOKEN }}
+          store-endpoint: ${{ secrets.STORE_ENDPOINT_PROD }}
+          store-access-token: ${{ secrets.STORE_ACCESS_TOKEN_PROD }}
           slack-webhook: ${{ secrets.SLACK_WEBHOOK }}
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          github-token: ${{ secrets.GIT_HUB_TOKEN }}
