@@ -47,3 +47,4 @@ screenshots: []
 components: []
 scripts:
   dev: npm run dev
+  postInstall: node server/hooks/post-install.js
