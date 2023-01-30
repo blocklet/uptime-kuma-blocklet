@@ -176,7 +176,6 @@
 </template>
 
 <script>
-import { defineAsyncComponent } from "vue";
 import { useToast } from "vue-toastification";
 const toast = useToast();
 import Confirm from "../components/Confirm.vue";
@@ -186,7 +185,7 @@ import Datetime from "../components/Datetime.vue";
 import CountUp from "../components/CountUp.vue";
 import Uptime from "../components/Uptime.vue";
 import Pagination from "v-pagination-3";
-const PingChart = defineAsyncComponent(() => import("../components/PingChart.vue"));
+import PingChart from "../components/PingChart.vue";
 import Tag from "../components/Tag.vue";
 import CertificateInfo from "../components/CertificateInfo.vue";
 
