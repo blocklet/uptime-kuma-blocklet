@@ -1,3 +1,7 @@
+## 1.19.9 (2023-1-30)
+
+- fix: disable dynamic component
+
 ## 1.19.8 (2023-1-30)
 
 - fix: cross platform

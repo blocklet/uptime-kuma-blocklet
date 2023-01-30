@@ -7,7 +7,7 @@ logo: logo.png
 author:
   name: wangshijun
 specVersion: 1.2.7
-version: 1.19.8
+version: 1.19.9
 repository:
   type: git
   url: git+https://github.com/blocklet/uptime-kuma.git
