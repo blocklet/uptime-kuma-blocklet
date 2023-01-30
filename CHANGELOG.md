@@ -1,3 +1,7 @@
+## 1.19.10 (2023-1-30)
+
+- fix: dynamic page not loading
+
 ## 1.19.9 (2023-1-30)
 
 - fix: disable dynamic component
