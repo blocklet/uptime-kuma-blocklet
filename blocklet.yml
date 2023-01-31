@@ -1,6 +1,7 @@
 name: uptime-kuma
 title: Uptime Kuma
-description: Uptime Kuma as a blocklet
+description: An easy-to-use self-hosted monitoring tool
+did: z8iZngXotuUXxsm6imc7naUUy1G5ycVs7A34H
 group: dapp
 main: server/server.js
 logo: logo.png
@@ -10,7 +11,7 @@ specVersion: 1.2.7
 version: 1.19.10
 repository:
   type: git
-  url: git+https://github.com/blocklet/uptime-kuma.git
+  url: git+https://github.com/blocklet/uptime-kuma-blocklet.git
 files:
   - screenshots
   - dist
@@ -24,7 +25,25 @@ interfaces:
     prefix: '*'
     port: BLOCKLET_PORT
     protocol: http
-did: z8iZngXotuUXxsm6imc7naUUy1G5ycVs7A34H
+    services:
+      - name: auth
+        config:
+          blockUnauthenticated: true
+          ignoreUrls:
+            - /api/status-page/**
+            - /status/**
+            - /upload/**
+            - /robots.txt
+          whoCanAccess: invited
+          profileFields:
+            - fullName
+            - email
+            - avatar
+          allowSwitchProfile: true
+          blockUnauthorized: false
+screenshots:
+  - light.jpg
+  - status.png
 community: ''
 documentation: ''
 homepage: ''
@@ -44,7 +63,6 @@ capabilities:
   clusterMode: false
   component: true
   navigation: true
-screenshots: []
 components: []
 scripts:
   dev: npm run dev
