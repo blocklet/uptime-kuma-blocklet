@@ -1,3 +1,7 @@
+## 1.19.11 (2023-1-31)
+
+- fix: protect with blocklet service
+
 ## 1.19.10 (2023-1-30)
 
 - fix: dynamic page not loading
