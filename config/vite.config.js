@@ -12,12 +12,13 @@ const viteCompressionFilter = /\.(js|mjs|json|css|html|svg)$/i;
 
 // https://vitejs.dev/config/
 export default defineConfig({
+    server: process.env.BLOCKLET_DATA_DIR ? {} : { port: 3000 },
     define: {
         "FRONTEND_VERSION": JSON.stringify(process.env.npm_package_version),
     },
     plugins: [
         vue(),
-        createBlockletPlugin(),
+        process.env.BLOCKLET_DATA_DIR ? createBlockletPlugin() : null,
         legacy({
             targets: [ "since 2015" ],
         }),
@@ -32,7 +33,7 @@ export default defineConfig({
             algorithm: "brotliCompress",
             filter: viteCompressionFilter,
         }),
-    ],
+    ].filter(Boolean),
     css: {
         postcss: {
             "parser": postCssScss,

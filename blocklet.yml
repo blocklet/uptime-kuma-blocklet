@@ -16,8 +16,7 @@ files:
   - screenshots
   - dist
   - public
-  - server/jobs
-  - server/model
+  - "!server/dev.js"
 interfaces:
   - type: web
     name: publicUrl
@@ -65,5 +64,5 @@ capabilities:
   navigation: true
 components: []
 scripts:
-  dev: npm run dev
+  dev: npm run dev:blocklet
   postInstall: node server/hooks/post-install.js
