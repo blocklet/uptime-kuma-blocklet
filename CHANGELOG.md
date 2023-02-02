@@ -1,3 +1,7 @@
+## 1.19.12 (2023-2-3)
+
+- chore: keep up to date
+
 ## 1.19.11 (2023-1-31)
 
 - fix: protect with blocklet service
