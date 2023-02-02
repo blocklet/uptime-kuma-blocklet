@@ -16,6 +16,7 @@ files:
   - screenshots
   - dist
   - public
+  - db
   - '!server/dev.js'
 interfaces:
   - type: web
