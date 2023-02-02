@@ -1,3 +1,7 @@
+## 1.19.13 (2023-2-3)
+
+- fix: missing db folder in the bundle
+
 ## 1.19.12 (2023-2-3)
 
 - chore: keep up to date
