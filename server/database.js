@@ -1,4 +1,5 @@
 const fs = require("fs");
+const path = require("path");
 const { R } = require("redbean-node");
 const { setSetting, setting } = require("./util-server");
 const { log, sleep } = require("../src/util");
@@ -93,12 +94,12 @@ class Database {
             PluginsManager.disable = true;
         }
 
-        Database.path = Database.dataDir + "kuma.db";
+        Database.path = path.join(Database.dataDir, "kuma.db");
         if (! fs.existsSync(Database.dataDir)) {
             fs.mkdirSync(Database.dataDir, { recursive: true });
         }
 
-        Database.uploadDir = Database.dataDir + "upload/";
+        Database.uploadDir = path.join(Database.dataDir, "upload/");
 
         if (! fs.existsSync(Database.uploadDir)) {
             fs.mkdirSync(Database.uploadDir, { recursive: true });
@@ -453,7 +454,7 @@ class Database {
     static backup(version) {
         if (! this.backupPath) {
             log.info("db", "Backing up the database");
-            this.backupPath = this.dataDir + "kuma.db.bak" + version;
+            this.backupPath = path.join(this.dataDir, "kuma.db.bak" + version);
             fs.copyFileSync(Database.path, this.backupPath);
 
             const shmPath = Database.path + "-shm";

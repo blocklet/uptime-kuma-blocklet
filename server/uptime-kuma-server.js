@@ -1,6 +1,7 @@
 const express = require("express");
 const https = require("https");
 const fs = require("fs");
+const path = require("path");
 const http = require("http");
 const { Server } = require("socket.io");
 const { R } = require("redbean-node");
@@ -191,7 +192,7 @@ class UptimeKumaServer {
      * @param {boolean} outputToConsole Should the error also be output to console?
      */
     static errorLog(error, outputToConsole = true) {
-        const errorLogStream = fs.createWriteStream(Database.dataDir + "/error.log", {
+        const errorLogStream = fs.createWriteStream(path.join(Database.dataDir, "/error.log"), {
             flags: "a"
         });
 
