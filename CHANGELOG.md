@@ -1,3 +1,7 @@
+## 1.19.14 (2023-2-3)
+
+- fix: seed database not working
+
 ## 1.19.13 (2023-2-3)
 
 - fix: missing db folder in the bundle
