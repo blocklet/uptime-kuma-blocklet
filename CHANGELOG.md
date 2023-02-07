@@ -1,3 +1,7 @@
+## 1.19.15 (2023-2-8)
+
+- chore: merge with official
+
 ## 1.19.14 (2023-2-3)
 
 - fix: seed database not working
