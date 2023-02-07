@@ -1256,7 +1256,7 @@ class Monitor extends BeanModel {
      */
     static async getPreviousHeartbeat(monitorID) {
         return await R.getRow(`
-            SELECT status, time FROM heartbeat
+            SELECT ping, status, time FROM heartbeat
             WHERE id = (select MAX(id) from heartbeat where monitor_id = ?)
         `, [
             monitorID

@@ -25,6 +25,7 @@
     "General Monitor Type": "General Monitor Type",
     "Passive Monitor Type": "Passive Monitor Type",
     "Specific Monitor Type": "Specific Monitor Type",
+    "markdownSupported": "Markdown syntax supported",
     "pauseDashboardHome": "Pause",
     "Pause": "Pause",
     "Name": "Name",
@@ -690,5 +691,9 @@
     "onebotSafetyTips": "For safety, must set access token",
     "PushDeer Key": "PushDeer Key",
     "wayToGetClickSendSMSToken": "You can get API Username and API Key from {0} .",
-    "Custom Monitor Type": "Custom Monitor Type"
+    "Custom Monitor Type": "Custom Monitor Type",
+    "Google Analytics ID": "Google Analytics ID",
+    "Edit Tag": "Edit Tag",
+    "Server Address": "Server Address",
+    "Learn More": "Learn More"
 }
