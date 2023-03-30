@@ -1,3 +1,7 @@
+## 1.20.0 (2023-3-31)
+
+- chore: merge with official
+
 ## 1.19.15 (2023-2-8)
 
 - chore: merge with official
