@@ -1,5 +1,5 @@
 let express = require("express");
-const { allowDevAllOrigin, allowAllOrigin, percentageToColor, filterAndJoin, send403 } = require("../util-server");
+const { allowDevAllOrigin, allowAllOrigin, percentageToColor, filterAndJoin, sendHttpError } = require("../util-server");
 const { R } = require("redbean-node");
 const apicache = require("../modules/apicache");
 const Monitor = require("../model/monitor");
@@ -7,6 +7,7 @@ const dayjs = require("dayjs");
 const { UP, MAINTENANCE, DOWN, PENDING, flipStatus, log } = require("../../src/util");
 const StatusPage = require("../model/status_page");
 const { UptimeKumaServer } = require("../uptime-kuma-server");
+const { UptimeCacheList } = require("../uptime-cache-list");
 const { makeBadge } = require("badge-maker");
 const { badgeConstants } = require("../config");
 
@@ -86,6 +87,7 @@ router.get("/api/push/:pushToken", async (request, response) => {
         await R.store(bean);
 
         io.to(monitor.user_id).emit("heartbeat", bean.toJSON());
+        UptimeCacheList.clearCache(monitor.id);
         Monitor.sendStats(io, monitor.id, monitor.user_id);
 
         response.json({
@@ -145,7 +147,11 @@ router.get("/api/badge/:id/status", cache("5 minutes"), async (request, response
             const heartbeat = await Monitor.getPreviousHeartbeat(requestedMonitorId);
             const state = overrideValue !== undefined ? overrideValue : heartbeat.status;
 
-            badgeValues.label = label ?? "Status";
+            if (label === undefined) {
+                badgeValues.label = "Status";
+            } else {
+                badgeValues.label = label;
+            }
             switch (state) {
                 case DOWN:
                     badgeValues.color = downColor;
@@ -175,7 +181,7 @@ router.get("/api/badge/:id/status", cache("5 minutes"), async (request, response
         response.type("image/svg+xml");
         response.send(svg);
     } catch (error) {
-        send403(response, error.message);
+        sendHttpError(response, error.message);
     }
 });
 
@@ -222,7 +228,7 @@ router.get("/api/badge/:id/uptime/:duration?", cache("5 minutes"), async (reques
             );
 
             // limit the displayed uptime percentage to four (two, when displayed as percent) decimal digits
-            const cleanUptime = parseFloat(uptime.toPrecision(4));
+            const cleanUptime = (uptime * 100).toPrecision(4);
 
             // use a given, custom color or calculate one based on the uptime value
             badgeValues.color = color ?? percentageToColor(uptime);
@@ -233,7 +239,7 @@ router.get("/api/badge/:id/uptime/:duration?", cache("5 minutes"), async (reques
                 labelPrefix,
                 label ?? `Uptime (${requestedDuration}${labelSuffix})`,
             ]);
-            badgeValues.message = filterAndJoin([ prefix, `${cleanUptime * 100}`, suffix ]);
+            badgeValues.message = filterAndJoin([ prefix, cleanUptime, suffix ]);
         }
 
         // build the SVG based on given values
@@ -242,7 +248,7 @@ router.get("/api/badge/:id/uptime/:duration?", cache("5 minutes"), async (reques
         response.type("image/svg+xml");
         response.send(svg);
     } catch (error) {
-        send403(response, error.message);
+        sendHttpError(response, error.message);
     }
 });
 
@@ -303,7 +309,7 @@ router.get("/api/badge/:id/ping/:duration?", cache("5 minutes"), async (request,
         response.type("image/svg+xml");
         response.send(svg);
     } catch (error) {
-        send403(response, error.message);
+        sendHttpError(response, error.message);
     }
 });
 
@@ -373,7 +379,7 @@ router.get("/api/badge/:id/avg-response/:duration?", cache("5 minutes"), async (
         response.type("image/svg+xml");
         response.send(svg);
     } catch (error) {
-        send403(response, error.message);
+        sendHttpError(response, error.message);
     }
 });
 
@@ -464,7 +470,7 @@ router.get("/api/badge/:id/cert-exp", cache("5 minutes"), async (request, respon
         response.type("image/svg+xml");
         response.send(svg);
     } catch (error) {
-        send403(response, error.message);
+        sendHttpError(response, error.message);
     }
 });
 
@@ -536,7 +542,7 @@ router.get("/api/badge/:id/response", cache("5 minutes"), async (request, respon
         response.type("image/svg+xml");
         response.send(svg);
     } catch (error) {
-        send403(response, error.message);
+        sendHttpError(response, error.message);
     }
 });
 

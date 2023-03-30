@@ -71,6 +71,10 @@ class Database {
         "patch-maintenance-table2.sql": true,
         "patch-add-gamedig-monitor.sql": true,
         "patch-add-google-analytics-status-page-tag.sql": true,
+        "patch-http-body-encoding.sql": true,
+        "patch-add-description-monitor.sql": true,
+        "patch-api-key-table.sql": true,
+        "patch-monitor-tls.sql": true,
     };
 
     /**
@@ -496,6 +500,16 @@ class Database {
 
             const shmPath = Database.path + "-shm";
             const walPath = Database.path + "-wal";
+
+            // Make sure we have a backup to restore before deleting old db
+            if (
+                !fs.existsSync(this.backupPath)
+                && !fs.existsSync(shmPath)
+                && !fs.existsSync(walPath)
+            ) {
+                log.error("db", "Backup file not found! Leaving database in failed state.");
+                process.exit(1);
+            }
 
             // Delete patch failed db
             try {

@@ -21,3 +21,6 @@ cypress/screenshots
 /extra/healthcheck
 /extra/healthcheck-armv7
 .blocklet
+
+extra/exe-builder/bin
+extra/exe-builder/obj
