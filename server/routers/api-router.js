@@ -1,5 +1,12 @@
 let express = require("express");
-const { allowDevAllOrigin, allowAllOrigin, percentageToColor, filterAndJoin, sendHttpError } = require("../util-server");
+const {
+    setting,
+    allowDevAllOrigin,
+    allowAllOrigin,
+    percentageToColor,
+    filterAndJoin,
+    sendHttpError,
+} = require("../util-server");
 const { R } = require("redbean-node");
 const apicache = require("../modules/apicache");
 const Monitor = require("../model/monitor");
@@ -10,6 +17,7 @@ const { UptimeKumaServer } = require("../uptime-kuma-server");
 const { UptimeCacheList } = require("../uptime-cache-list");
 const { makeBadge } = require("badge-maker");
 const { badgeConstants } = require("../config");
+const { Prometheus } = require("../prometheus");
 
 let router = express.Router();
 
@@ -21,10 +29,14 @@ router.get("/api/entry-page", async (request, response) => {
     allowDevAllOrigin(response);
 
     let result = { };
+    let hostname = request.hostname;
+    if ((await setting("trustProxy")) && request.headers["x-forwarded-host"]) {
+        hostname = request.headers["x-forwarded-host"];
+    }
 
-    if (request.hostname in StatusPage.domainMappingList) {
+    if (hostname in StatusPage.domainMappingList) {
         result.type = "statusPageMatchedDomain";
-        result.statusPageSlug = StatusPage.domainMappingList[request.hostname];
+        result.statusPageSlug = StatusPage.domainMappingList[hostname];
     } else {
         result.type = "entryPage";
         result.entryPage = server.entryPage;
@@ -37,7 +49,7 @@ router.get("/api/push/:pushToken", async (request, response) => {
 
         let pushToken = request.params.pushToken;
         let msg = request.query.msg || "OK";
-        let ping = request.query.ping || null;
+        let ping = parseFloat(request.query.ping) || null;
         let statusString = request.query.status || "up";
         let status = (statusString === "up") ? UP : DOWN;
 
@@ -89,6 +101,7 @@ router.get("/api/push/:pushToken", async (request, response) => {
         io.to(monitor.user_id).emit("heartbeat", bean.toJSON());
         UptimeCacheList.clearCache(monitor.id);
         Monitor.sendStats(io, monitor.id, monitor.user_id);
+        new Prometheus(monitor).update(bean, undefined);
 
         response.json({
             ok: true,
@@ -440,7 +453,7 @@ router.get("/api/badge/:id/cert-exp", cache("5 minutes"), async (request, respon
                 if (!tlsInfo.valid) {
                     // return a "Bad Cert" badge in naColor (grey), when cert is not valid
                     badgeValues.message = "Bad Cert";
-                    badgeValues.color = badgeConstants.downColor;
+                    badgeValues.color = downColor;
                 } else {
                     const daysRemaining = parseInt(overrideValue ?? tlsInfo.certInfo.daysRemaining);
 

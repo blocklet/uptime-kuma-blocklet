@@ -592,7 +592,6 @@
     "For safety, must use secret key": "للسلامة يجب استخدام المفتاح السري",
     "Device Token": "رمز الجهاز",
     "Platform": "منصة",
-    "Android": "ذكري المظهر",
     "Huawei": "هواوي",
     "High": "عالٍ",
     "Retry": "إعادة المحاولة",
@@ -683,6 +682,7 @@
     "backupDescription2": "ملحوظة",
     "languageName": "العربية",
     "Game": "الألعاب",
-    "List": "قائمة",
-    "statusMaintenance": "الصيانة"
+    "List": "القائمة",
+    "statusMaintenance": "الصيانة",
+    "Home": "الرئيسة"
 }

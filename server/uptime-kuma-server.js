@@ -11,8 +11,9 @@ const util = require("util");
 const { CacheableDnsHttpAgent } = require("./cacheable-dns-http-agent");
 const { Settings } = require("./settings");
 const dayjs = require("dayjs");
-const { PluginsManager } = require("./plugins-manager");
-// DO NOT IMPORT HERE IF THE MODULES USED `UptimeKumaServer.getInstance()`
+const childProcess = require("child_process");
+const axios = require("axios");
+// DO NOT IMPORT HERE IF THE MODULES USED `UptimeKumaServer.getInstance()`, put at the bottom of this file instead.
 
 /**
  * `module.exports` (alias: `server`) should be inside this class, in order to avoid circular dependency issue.
@@ -49,18 +50,20 @@ class UptimeKumaServer {
     indexHTML = "";
 
     /**
-     * Plugins Manager
-     * @type {PluginsManager}
-     */
-    pluginsManager = null;
-
-    /**
      *
      * @type {{}}
      */
     static monitorTypeList = {
 
     };
+
+    /**
+     * Use for decode the auth object
+     * @type {null}
+     */
+    jwtSecret = null;
+
+    checkMonitorsInterval = null;
 
     static getInstance(args) {
         if (UptimeKumaServer.instance == null) {
@@ -74,6 +77,9 @@ class UptimeKumaServer {
         const sslKey = args["ssl-key"] || process.env.UPTIME_KUMA_SSL_KEY || process.env.SSL_KEY || undefined;
         const sslCert = args["ssl-cert"] || process.env.UPTIME_KUMA_SSL_CERT || process.env.SSL_CERT || undefined;
         const sslKeyPassphrase = args["ssl-key-passphrase"] || process.env.UPTIME_KUMA_SSL_KEY_PASSPHRASE || process.env.SSL_KEY_PASSPHRASE || undefined;
+
+        // Set default axios timeout to 5 minutes instead of infinity
+        axios.defaults.timeout = 300 * 1000;
 
         log.info("server", "Creating express and socket.io instance");
         this.app = express();
@@ -99,11 +105,18 @@ class UptimeKumaServer {
             }
         }
 
+        // Set Monitor Types
+        UptimeKumaServer.monitorTypeList["real-browser"] = new RealBrowserMonitorType();
+        UptimeKumaServer.monitorTypeList["tailscale-ping"] = new TailscalePing();
+
         this.io = new Server(this.httpServer);
     }
 
     /** Initialise app after the database has been set up */
     async initAfterDatabaseReady() {
+        // Static
+        this.app.use("/screenshots", express.static(Database.screenshotDir));
+
         await CacheableDnsHttpAgent.update();
 
         process.env.TZ = await this.getTimezone();
@@ -245,9 +258,9 @@ class UptimeKumaServer {
 
             return (typeof forwardedFor === "string" ? forwardedFor.split(",")[0].trim() : null)
                 || socket.client.conn.request.headers["x-real-ip"]
-                || clientIP.replace(/^.*:/, "");
+                || clientIP.replace(/^::ffff:/, "");
         } else {
-            return clientIP.replace(/^.*:/, "");
+            return clientIP.replace(/^::ffff:/, "");
         }
     }
 
@@ -258,13 +271,43 @@ class UptimeKumaServer {
      * @returns {Promise<string>}
      */
     async getTimezone() {
+        // From process.env.TZ
+        try {
+            if (process.env.TZ) {
+                this.checkTimezone(process.env.TZ);
+                return process.env.TZ;
+            }
+        } catch (e) {
+            log.warn("timezone", e.message + " in process.env.TZ");
+        }
+
         let timezone = await Settings.get("serverTimezone");
-        if (timezone) {
-            return timezone;
-        } else if (process.env.TZ) {
-            return process.env.TZ;
-        } else {
-            return dayjs.tz.guess();
+
+        // From Settings
+        try {
+            log.debug("timezone", "Using timezone from settings: " + timezone);
+            if (timezone) {
+                this.checkTimezone(timezone);
+                return timezone;
+            }
+        } catch (e) {
+            log.warn("timezone", e.message + " in settings");
+        }
+
+        // Guess
+        try {
+            let guess = dayjs.tz.guess();
+            log.debug("timezone", "Guessing timezone: " + guess);
+            if (guess) {
+                this.checkTimezone(guess);
+                return guess;
+            } else {
+                return "UTC";
+            }
+        } catch (e) {
+            // Guess failed, fall back to UTC
+            log.debug("timezone", "Guessed an invalid timezone. Use UTC as fallback");
+            return "UTC";
         }
     }
 
@@ -277,64 +320,169 @@ class UptimeKumaServer {
     }
 
     /**
+     * Throw an error if the timezone is invalid
+     * @param timezone
+     */
+    checkTimezone(timezone) {
+        try {
+            dayjs.utc("2013-11-18 11:55").tz(timezone).format();
+        } catch (e) {
+            throw new Error("Invalid timezone:" + timezone);
+        }
+    }
+
+    /**
      * Set the current server timezone and environment variables
      * @param {string} timezone
      */
     async setTimezone(timezone) {
+        this.checkTimezone(timezone);
         await Settings.set("serverTimezone", timezone, "general");
         process.env.TZ = timezone;
         dayjs.tz.setDefault(timezone);
     }
 
-    /** Stop the server */
+    /**
+     * TODO: Listen logic should be moved to here
+     * @returns {Promise<void>}
+     */
+    async start() {
+        let enable = await Settings.get("nscd");
+
+        if (enable || enable === null) {
+            this.startNSCDServices();
+        }
+
+        this.checkMonitorsInterval = setInterval(() => {
+            this.checkMonitors();
+        }, 60 * 1000);
+    }
+
+    /**
+     * Stop the server
+     * @returns {Promise<void>}
+     */
     async stop() {
+        let enable = await Settings.get("nscd");
 
-    }
+        if (enable || enable === null) {
+            this.stopNSCDServices();
+        }
 
-    loadPlugins() {
-        this.pluginsManager = new PluginsManager(this);
-    }
-
-    /**
-     *
-     * @returns {PluginsManager}
-     */
-    getPluginManager() {
-        return this.pluginsManager;
+        clearInterval(this.checkMonitorsInterval);
     }
 
     /**
-     *
-     * @param {MonitorType} monitorType
+     * Start all system services (e.g. nscd)
+     * For now, only used in Docker
      */
-    addMonitorType(monitorType) {
-        if (monitorType instanceof MonitorType && monitorType.name) {
-            if (monitorType.name in UptimeKumaServer.monitorTypeList) {
-                log.error("", "Conflict Monitor Type name");
+    startNSCDServices() {
+        if (process.env.UPTIME_KUMA_IS_CONTAINER) {
+            try {
+                log.info("services", "Starting nscd");
+                childProcess.execSync("sudo service nscd start", { stdio: "pipe" });
+            } catch (e) {
+                log.info("services", "Failed to start nscd");
             }
-            UptimeKumaServer.monitorTypeList[monitorType.name] = monitorType;
-        } else {
-            log.error("", "Invalid Monitor Type: " + monitorType.name);
         }
     }
 
     /**
-     *
-     * @param {MonitorType} monitorType
+     * Stop all system services
      */
-    removeMonitorType(monitorType) {
-        if (UptimeKumaServer.monitorTypeList[monitorType.name] === monitorType) {
-            delete UptimeKumaServer.monitorTypeList[monitorType.name];
-        } else {
-            log.error("", "Remove MonitorType failed: " + monitorType.name);
+    stopNSCDServices() {
+        if (process.env.UPTIME_KUMA_IS_CONTAINER) {
+            try {
+                log.info("services", "Stopping nscd");
+                childProcess.execSync("sudo service nscd stop");
+            } catch (e) {
+                log.info("services", "Failed to stop nscd");
+            }
         }
     }
 
+    /**
+     * Start the specified monitor
+     * @param {number} monitorID ID of monitor to start
+     * @returns {Promise<void>}
+     */
+    async startMonitor(monitorID) {
+        log.info("manage", `Resume Monitor: ${monitorID} by server`);
+
+        await R.exec("UPDATE monitor SET active = 1 WHERE id = ?", [
+            monitorID,
+        ]);
+
+        let monitor = await R.findOne("monitor", " id = ? ", [
+            monitorID,
+        ]);
+
+        if (monitor.id in this.monitorList) {
+            this.monitorList[monitor.id].stop();
+        }
+
+        this.monitorList[monitor.id] = monitor;
+        monitor.start(this.io);
+    }
+
+    /**
+     * Restart a given monitor
+     * @param {number} monitorID ID of monitor to start
+     * @returns {Promise<void>}
+     */
+    async restartMonitor(monitorID) {
+        return await this.startMonitor(monitorID);
+    }
+
+    /**
+     * Check if monitors are running properly
+     */
+    async checkMonitors() {
+        log.debug("monitor_checker", "Checking monitors");
+
+        for (let monitorID in this.monitorList) {
+            let monitor = this.monitorList[monitorID];
+
+            // Not for push monitor
+            if (monitor.type === "push") {
+                continue;
+            }
+
+            if (!monitor.active) {
+                continue;
+            }
+
+            // Check the lastStartBeatTime, if it is too long, then restart
+            if (monitor.lastScheduleBeatTime ) {
+                let diff = dayjs().diff(monitor.lastStartBeatTime, "second");
+
+                if (diff > monitor.interval * 1.5) {
+                    log.error("monitor_checker", `Monitor Interval: ${monitor.interval} Monitor ` + monitorID + " lastStartBeatTime diff: " + diff);
+                    log.error("monitor_checker", "Unexpected error: Monitor " + monitorID + " is struck for unknown reason");
+                    log.error("monitor_checker", "Last start beat time: " + R.isoDateTime(monitor.lastStartBeatTime));
+                    log.error("monitor_checker", "Last end beat time: " + R.isoDateTime(monitor.lastEndBeatTime));
+                    log.error("monitor_checker", "Last ScheduleBeatTime: " + R.isoDateTime(monitor.lastScheduleBeatTime));
+
+                    // Restart
+                    log.error("monitor_checker", `Restarting monitor ${monitorID} automatically now`);
+                    this.restartMonitor(monitorID);
+                } else {
+                    //log.debug("monitor_checker", "Monitor " + monitorID + " is running normally");
+                }
+            } else {
+                //log.debug("monitor_checker", "Monitor " + monitorID + " is not started yet, skipp");
+            }
+
+        }
+
+        log.debug("monitor_checker", "Checking monitors end");
+    }
 }
 
 module.exports = {
     UptimeKumaServer
 };
 
-// Must be at the end
-const { MonitorType } = require("./monitor-types/monitor-type");
+// Must be at the end to avoid circular dependencies
+const { RealBrowserMonitorType } = require("./monitor-types/real-browser-monitor-type");
+const { TailscalePing } = require("./monitor-types/tailscale-ping");

@@ -116,12 +116,6 @@ export default {
                 backup: {
                     title: this.$t("Backup"),
                 },
-                /*
-                Hidden for now: Unfortunately, after some test, I found that Playwright requires a lot of libraries to be installed on the Linux host in order to start Chrome or Firefox.
-                It will be hard to install, so I hide this feature for now. But it still accessible via URL: /settings/plugins.
-                plugins: {
-                    title: this.$tc("plugin", 2),
-                },*/
                 about: {
                     title: this.$t("About"),
                 },
@@ -167,6 +161,10 @@ export default {
 
                 if (this.settings.entryPage === undefined) {
                     this.settings.entryPage = "dashboard";
+                }
+
+                if (this.settings.nscd === undefined) {
+                    this.settings.nscd = true;
                 }
 
                 if (this.settings.dnsCache === undefined) {

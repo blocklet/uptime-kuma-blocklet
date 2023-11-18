@@ -141,12 +141,24 @@ async function sendAPIKeyList(socket) {
 /**
  * Emits the version information to the client.
  * @param {Socket} socket Socket.io socket instance
+ * @param {boolean} hideVersion
  * @returns {Promise<void>}
  */
-async function sendInfo(socket) {
+async function sendInfo(socket, hideVersion = false) {
+    let version;
+    let latestVersion;
+    let isContainer;
+
+    if (!hideVersion) {
+        version = checkVersion.version;
+        latestVersion = checkVersion.latestVersion;
+        isContainer = (process.env.UPTIME_KUMA_IS_CONTAINER === "1");
+    }
+
     socket.emit("info", {
-        version: checkVersion.version,
-        latestVersion: checkVersion.latestVersion,
+        version,
+        latestVersion,
+        isContainer,
         primaryBaseURL: await setting("primaryBaseURL"),
         serverTimezone: await server.getTimezone(),
         serverTimezoneOffset: server.getTimezoneOffset(),

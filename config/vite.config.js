@@ -4,6 +4,7 @@ import { defineConfig } from "vite";
 import { createBlockletPlugin } from "vite-plugin-blocklet";
 import visualizer from "rollup-plugin-visualizer";
 import viteCompression from "vite-plugin-compression";
+import commonjs from "vite-plugin-commonjs";
 
 const postCssScss = require("postcss-scss");
 const postcssRTLCSS = require("postcss-rtlcss");
@@ -15,8 +16,12 @@ export default defineConfig({
     server: process.env.BLOCKLET_DATA_DIR ? {} : { port: 3000 },
     define: {
         "FRONTEND_VERSION": JSON.stringify(process.env.npm_package_version),
+        "DEVCONTAINER": JSON.stringify(process.env.DEVCONTAINER),
+        "GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN": JSON.stringify(process.env.GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN),
+        "CODESPACE_NAME": JSON.stringify(process.env.CODESPACE_NAME),
     },
     plugins: [
+        commonjs(),
         vue(),
         process.env.BLOCKLET_DATA_DIR ? createBlockletPlugin() : null,
         legacy({
@@ -43,6 +48,9 @@ export default defineConfig({
     },
     build: {
         modulePreload: false,
+        commonjsOptions: {
+            include: [ /.js$/ ],
+        },
         rollupOptions: {
             output: {
                 manualChunks(id, { getModuleInfo, getModuleIds }) {

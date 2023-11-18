@@ -34,9 +34,13 @@
                     </div>
                 </div>
 
-                <div class="my-3 form-check form-switch">
-                    <input id="switch-theme" v-model="config.theme" class="form-check-input" type="checkbox" true-value="dark" false-value="light">
-                    <label class="form-check-label" for="switch-theme">{{ $t("Switch to Dark Theme") }}</label>
+                <div class="my-3">
+                    <label for="switch-theme" class="form-label">{{ $t("Theme") }}</label>
+                    <select id="switch-theme" v-model="config.theme" class="form-select">
+                        <option value="auto">{{ $t("Auto") }}</option>
+                        <option value="light">{{ $t("Light") }}</option>
+                        <option value="dark">{{ $t("Dark") }}</option>
+                    </select>
                 </div>
 
                 <div class="my-3 form-check form-switch">
@@ -48,6 +52,12 @@
                 <div class="my-3 form-check form-switch">
                     <input id="show-powered-by" v-model="config.showPoweredBy" class="form-check-input" type="checkbox">
                     <label class="form-check-label" for="show-powered-by">{{ $t("Show Powered By") }}</label>
+                </div>
+
+                <!-- Show certificate expiry -->
+                <div class="my-3 form-check form-switch">
+                    <input id="show-certificate-expiry" v-model="config.showCertificateExpiry" class="form-check-input" type="checkbox">
+                    <label class="form-check-label" for="show-certificate-expiry">{{ $t("showCertificateExpiry") }}</label>
                 </div>
 
                 <div v-if="false" class="my-3">
@@ -92,7 +102,7 @@
 
             <!-- Sidebar Footer -->
             <div class="sidebar-footer">
-                <button class="btn btn-success me-2" @click="save">
+                <button class="btn btn-success me-2" :disabled="loading" @click="save">
                     <font-awesome-icon icon="save" />
                     {{ $t("Save") }}
                 </button>
@@ -274,11 +284,24 @@
                 </div>
 
                 <div class="mt-3">
-                    <div v-if="allMonitorList.length > 0 && loadedData">
+                    <div v-if="sortedMonitorList.length > 0 && loadedData">
                         <label>{{ $t("Add a monitor") }}:</label>
-                        <select v-model="selectedMonitor" class="form-control">
-                            <option v-for="monitor in allMonitorList" :key="monitor.id" :value="monitor">{{ monitor.name }}</option>
-                        </select>
+                        <VueMultiselect
+                            v-model="selectedMonitor"
+                            :options="sortedMonitorList"
+                            :multiple="false"
+                            :searchable="true"
+                            :placeholder="$t('Add a monitor')"
+                            label="name"
+                            trackBy="name"
+                            class="mt-3"
+                        >
+                            <template #option="{ option }">
+                                <div class="d-inline-flex">
+                                    <span>{{ option.pathName }} <Tag v-for="tag in option.tags" :key="tag" :item="tag" :size="'sm'" /></span>
+                                </div>
+                            </template>
+                        </VueMultiselect>
                     </div>
                     <div v-else class="text-center">
                         {{ $t("No monitors available.") }}  <router-link to="/add">{{ $t("Add one") }}</router-link>
@@ -292,7 +315,7 @@
                     👀 {{ $t("statusPageNothing") }}
                 </div>
 
-                <PublicGroupList :edit-mode="enableEditMode" :show-tags="config.showTags" />
+                <PublicGroupList :edit-mode="enableEditMode" :show-tags="config.showTags" :show-certificate-expiry="config.showCertificateExpiry" />
             </div>
 
             <footer class="mt-5 mb-4">
@@ -308,7 +331,7 @@
                 </p>
 
                 <div class="refresh-info mb-2">
-                    <div>{{ $t("Last Updated") }}: <date-time :value="lastUpdateTime" /></div>
+                    <div>{{ $t("Last Updated") }}:  {{ lastUpdateTimeDisplay }}</div>
                     <div>{{ $tc("statusPageRefreshIn", [ updateCountdownText]) }}</div>
                 </div>
             </footer>
@@ -343,9 +366,10 @@ import DOMPurify from "dompurify";
 import Confirm from "../components/Confirm.vue";
 import PublicGroupList from "../components/PublicGroupList.vue";
 import MaintenanceTime from "../components/MaintenanceTime.vue";
-import DateTime from "../components/Datetime.vue";
 import { getResBaseURL } from "../util-frontend";
 import { STATUS_PAGE_ALL_DOWN, STATUS_PAGE_ALL_UP, STATUS_PAGE_MAINTENANCE, STATUS_PAGE_PARTIAL_DOWN, UP, MAINTENANCE } from "../util.ts";
+import Tag from "../components/Tag.vue";
+import VueMultiselect from "vue-multiselect";
 
 const toast = useToast();
 dayjs.extend(duration);
@@ -367,7 +391,8 @@ export default {
         Confirm,
         PrismEditor,
         MaintenanceTime,
-        DateTime,
+        Tag,
+        VueMultiselect
     },
 
     // Leave Page for vue route change
@@ -413,6 +438,7 @@ export default {
             lastUpdateTime: dayjs(),
             updateCountdown: null,
             updateCountdownText: null,
+            loading: true,
         };
     },
     computed: {
@@ -428,7 +454,7 @@ export default {
         /**
          * If the monitor is added to public list, which will not be in this list.
          */
-        allMonitorList() {
+        sortedMonitorList() {
             let result = [];
 
             for (let id in this.$root.monitorList) {
@@ -437,6 +463,31 @@ export default {
                     result.push(monitor);
                 }
             }
+
+            result.sort((m1, m2) => {
+
+                if (m1.active !== m2.active) {
+                    if (m1.active === 0) {
+                        return 1;
+                    }
+
+                    if (m2.active === 0) {
+                        return -1;
+                    }
+                }
+
+                if (m1.weight !== m2.weight) {
+                    if (m1.weight > m2.weight) {
+                        return -1;
+                    }
+
+                    if (m1.weight < m2.weight) {
+                        return 1;
+                    }
+                }
+
+                return m1.pathName.localeCompare(m2.pathName);
+            });
 
             return result;
         },
@@ -537,6 +588,10 @@ export default {
                 return "";
             }
         },
+
+        lastUpdateTimeDisplay() {
+            return this.$root.datetime(this.lastUpdateTime);
+        }
     },
     watch: {
 
@@ -643,6 +698,8 @@ export default {
             this.incident = res.data.incident;
             this.maintenanceList = res.data.maintenanceList;
             this.$root.publicGroupList = res.data.publicGroupList;
+
+            this.loading = false;
         }).catch( function (error) {
             if (error.response.status === 404) {
                 location.href = "/page-not-found";
@@ -752,6 +809,7 @@ export default {
 
         /** Save the status page */
         save() {
+            this.loading = true;
             let startTime = new Date();
             this.config.slug = this.config.slug.trim().toLowerCase();
 
@@ -769,10 +827,12 @@ export default {
                     }
 
                     setTimeout(() => {
+                        this.loading = false;
                         location.href = "/status/" + this.config.slug;
                     }, time);
 
                 } else {
+                    this.loading = false;
                     toast.error(res.msg);
                 }
             });
