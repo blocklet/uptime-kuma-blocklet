@@ -5,14 +5,14 @@ const path = require("path");
 const http = require("http");
 const { Server } = require("socket.io");
 const { R } = require("redbean-node");
-const { log } = require("../src/util");
+const { log, isDev } = require("../src/util");
 const Database = require("./database");
 const util = require("util");
 const { CacheableDnsHttpAgent } = require("./cacheable-dns-http-agent");
 const { Settings } = require("./settings");
 const dayjs = require("dayjs");
-const childProcess = require("child_process");
-const axios = require("axios");
+const childProcessAsync = require("promisify-child-process");
+const { isSSL, sslKey, sslCert, sslKeyPassphrase } = require("./config");
 // DO NOT IMPORT HERE IF THE MODULES USED `UptimeKumaServer.getInstance()`, put at the bottom of this file instead.
 
 /**
@@ -63,27 +63,17 @@ class UptimeKumaServer {
      */
     jwtSecret = null;
 
-    checkMonitorsInterval = null;
-
-    static getInstance(args) {
+    static getInstance() {
         if (UptimeKumaServer.instance == null) {
-            UptimeKumaServer.instance = new UptimeKumaServer(args);
+            UptimeKumaServer.instance = new UptimeKumaServer();
         }
         return UptimeKumaServer.instance;
     }
 
-    constructor(args) {
-        // SSL
-        const sslKey = args["ssl-key"] || process.env.UPTIME_KUMA_SSL_KEY || process.env.SSL_KEY || undefined;
-        const sslCert = args["ssl-cert"] || process.env.UPTIME_KUMA_SSL_CERT || process.env.SSL_CERT || undefined;
-        const sslKeyPassphrase = args["ssl-key-passphrase"] || process.env.UPTIME_KUMA_SSL_KEY_PASSPHRASE || process.env.SSL_KEY_PASSPHRASE || undefined;
-
-        // Set default axios timeout to 5 minutes instead of infinity
-        axios.defaults.timeout = 300 * 1000;
-
+    constructor() {
         log.info("server", "Creating express and socket.io instance");
         this.app = express();
-        if (sslKey && sslCert) {
+        if (isSSL) {
             log.info("server", "Server Type: HTTPS");
             this.httpServer = https.createServer({
                 key: fs.readFileSync(sslKey),
@@ -109,7 +99,65 @@ class UptimeKumaServer {
         UptimeKumaServer.monitorTypeList["real-browser"] = new RealBrowserMonitorType();
         UptimeKumaServer.monitorTypeList["tailscale-ping"] = new TailscalePing();
 
-        this.io = new Server(this.httpServer);
+        // Allow all CORS origins (polling) in development
+        let cors = undefined;
+        if (isDev) {
+            cors = {
+                origin: "*",
+            };
+        }
+
+        this.io = new Server(this.httpServer, {
+            cors,
+            allowRequest: async (req, callback) => {
+                let transport;
+                // It should be always true, but just in case, because this property is not documented
+                if (req._query) {
+                    transport = req._query.transport;
+                } else {
+                    log.error("socket", "Ops!!! Cannot get transport type, assume that it is polling");
+                    transport = "polling";
+                }
+
+                const clientIP = await this.getClientIPwithProxy(req.connection.remoteAddress, req.headers);
+                log.info("socket", `New ${transport} connection, IP = ${clientIP}`);
+
+                // The following check is only for websocket connections, polling connections are already protected by CORS
+                if (transport === "polling") {
+                    callback(null, true);
+                } else if (transport === "websocket") {
+                    const bypass = process.env.UPTIME_KUMA_WS_ORIGIN_CHECK === "bypass";
+                    if (bypass) {
+                        log.info("auth", "WebSocket origin check is bypassed");
+                        callback(null, true);
+                    } else if (!req.headers.origin) {
+                        log.info("auth", "WebSocket with no origin is allowed");
+                        callback(null, true);
+                    } else {
+                        try {
+                            let host = req.headers.host;
+                            let origin = req.headers.origin;
+                            let originURL = new URL(origin);
+                            let xForwardedFor;
+                            if (await Settings.get("trustProxy")) {
+                                xForwardedFor = req.headers["x-forwarded-for"];
+                            }
+
+                            if (host !== originURL.host && xForwardedFor !== originURL.host) {
+                                callback(null, false);
+                                log.error("auth", `Origin (${origin}) does not match host (${host}), IP: ${clientIP}`);
+                            } else {
+                                callback(null, true);
+                            }
+                        } catch (e) {
+                            // Invalid origin url, probably not from browser
+                            callback(null, false);
+                            log.error("auth", `Invalid origin url (${origin}), IP: ${clientIP}`);
+                        }
+                    }
+                }
+            }
+        });
     }
 
     /** Initialise app after the database has been set up */
@@ -244,20 +292,28 @@ class UptimeKumaServer {
     /**
      * Get the IP of the client connected to the socket
      * @param {Socket} socket
-     * @returns {string}
+     * @returns {Promise<string>}
      */
-    async getClientIP(socket) {
-        let clientIP = socket.client.conn.remoteAddress;
+    getClientIP(socket) {
+        return this.getClientIPwithProxy(socket.client.conn.remoteAddress, socket.client.conn.request.headers);
+    }
 
+    /**
+     *
+     * @param {string} clientIP
+     * @param {IncomingHttpHeaders} headers
+     * @returns {Promise<string>}
+     */
+    async getClientIPwithProxy(clientIP, headers) {
         if (clientIP === undefined) {
             clientIP = "";
         }
 
         if (await Settings.get("trustProxy")) {
-            const forwardedFor = socket.client.conn.request.headers["x-forwarded-for"];
+            const forwardedFor = headers["x-forwarded-for"];
 
             return (typeof forwardedFor === "string" ? forwardedFor.split(",")[0].trim() : null)
-                || socket.client.conn.request.headers["x-real-ip"]
+                || headers["x-real-ip"]
                 || clientIP.replace(/^::ffff:/, "");
         } else {
             return clientIP.replace(/^::ffff:/, "");
@@ -350,12 +406,8 @@ class UptimeKumaServer {
         let enable = await Settings.get("nscd");
 
         if (enable || enable === null) {
-            this.startNSCDServices();
+            await this.startNSCDServices();
         }
-
-        this.checkMonitorsInterval = setInterval(() => {
-            this.checkMonitors();
-        }, 60 * 1000);
     }
 
     /**
@@ -366,21 +418,19 @@ class UptimeKumaServer {
         let enable = await Settings.get("nscd");
 
         if (enable || enable === null) {
-            this.stopNSCDServices();
+            await this.stopNSCDServices();
         }
-
-        clearInterval(this.checkMonitorsInterval);
     }
 
     /**
      * Start all system services (e.g. nscd)
      * For now, only used in Docker
      */
-    startNSCDServices() {
+    async startNSCDServices() {
         if (process.env.UPTIME_KUMA_IS_CONTAINER) {
             try {
                 log.info("services", "Starting nscd");
-                childProcess.execSync("sudo service nscd start", { stdio: "pipe" });
+                await childProcessAsync.exec("sudo service nscd start");
             } catch (e) {
                 log.info("services", "Failed to start nscd");
             }
@@ -390,11 +440,11 @@ class UptimeKumaServer {
     /**
      * Stop all system services
      */
-    stopNSCDServices() {
+    async stopNSCDServices() {
         if (process.env.UPTIME_KUMA_IS_CONTAINER) {
             try {
                 log.info("services", "Stopping nscd");
-                childProcess.execSync("sudo service nscd stop");
+                await childProcessAsync.exec("sudo service nscd stop");
             } catch (e) {
                 log.info("services", "Failed to stop nscd");
             }
@@ -402,80 +452,22 @@ class UptimeKumaServer {
     }
 
     /**
-     * Start the specified monitor
-     * @param {number} monitorID ID of monitor to start
-     * @returns {Promise<void>}
+     * Force connected sockets of a user to refresh and disconnect.
+     * Used for resetting password.
+     * @param {string} userID
+     * @param {string?} currentSocketID
      */
-    async startMonitor(monitorID) {
-        log.info("manage", `Resume Monitor: ${monitorID} by server`);
+    disconnectAllSocketClients(userID, currentSocketID = undefined) {
+        for (const socket of this.io.sockets.sockets.values()) {
+            if (socket.userID === userID && socket.id !== currentSocketID) {
+                try {
+                    socket.emit("refresh");
+                    socket.disconnect();
+                } catch (e) {
 
-        await R.exec("UPDATE monitor SET active = 1 WHERE id = ?", [
-            monitorID,
-        ]);
-
-        let monitor = await R.findOne("monitor", " id = ? ", [
-            monitorID,
-        ]);
-
-        if (monitor.id in this.monitorList) {
-            this.monitorList[monitor.id].stop();
-        }
-
-        this.monitorList[monitor.id] = monitor;
-        monitor.start(this.io);
-    }
-
-    /**
-     * Restart a given monitor
-     * @param {number} monitorID ID of monitor to start
-     * @returns {Promise<void>}
-     */
-    async restartMonitor(monitorID) {
-        return await this.startMonitor(monitorID);
-    }
-
-    /**
-     * Check if monitors are running properly
-     */
-    async checkMonitors() {
-        log.debug("monitor_checker", "Checking monitors");
-
-        for (let monitorID in this.monitorList) {
-            let monitor = this.monitorList[monitorID];
-
-            // Not for push monitor
-            if (monitor.type === "push") {
-                continue;
-            }
-
-            if (!monitor.active) {
-                continue;
-            }
-
-            // Check the lastStartBeatTime, if it is too long, then restart
-            if (monitor.lastScheduleBeatTime ) {
-                let diff = dayjs().diff(monitor.lastStartBeatTime, "second");
-
-                if (diff > monitor.interval * 1.5) {
-                    log.error("monitor_checker", `Monitor Interval: ${monitor.interval} Monitor ` + monitorID + " lastStartBeatTime diff: " + diff);
-                    log.error("monitor_checker", "Unexpected error: Monitor " + monitorID + " is struck for unknown reason");
-                    log.error("monitor_checker", "Last start beat time: " + R.isoDateTime(monitor.lastStartBeatTime));
-                    log.error("monitor_checker", "Last end beat time: " + R.isoDateTime(monitor.lastEndBeatTime));
-                    log.error("monitor_checker", "Last ScheduleBeatTime: " + R.isoDateTime(monitor.lastScheduleBeatTime));
-
-                    // Restart
-                    log.error("monitor_checker", `Restarting monitor ${monitorID} automatically now`);
-                    this.restartMonitor(monitorID);
-                } else {
-                    //log.debug("monitor_checker", "Monitor " + monitorID + " is running normally");
                 }
-            } else {
-                //log.debug("monitor_checker", "Monitor " + monitorID + " is not started yet, skipp");
             }
-
         }
-
-        log.debug("monitor_checker", "Checking monitors end");
     }
 }
 

@@ -4,7 +4,6 @@ import { defineConfig } from "vite";
 import { createBlockletPlugin } from "vite-plugin-blocklet";
 import visualizer from "rollup-plugin-visualizer";
 import viteCompression from "vite-plugin-compression";
-import commonjs from "vite-plugin-commonjs";
 
 const postCssScss = require("postcss-scss");
 const postcssRTLCSS = require("postcss-rtlcss");
@@ -21,7 +20,6 @@ export default defineConfig({
         "CODESPACE_NAME": JSON.stringify(process.env.CODESPACE_NAME),
     },
     plugins: [
-        commonjs(),
         vue(),
         process.env.BLOCKLET_DATA_DIR ? createBlockletPlugin() : null,
         legacy({
