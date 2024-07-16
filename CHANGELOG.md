@@ -1,3 +1,7 @@
+## 1.23.14 (2024-7-16)
+
+- chore: update blocklet.yml for open source github projects
+
 ## 1.20.0 (2023-3-31)
 
 - chore: merge with official
