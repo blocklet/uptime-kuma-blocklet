@@ -44,10 +44,10 @@ interfaces:
 screenshots:
   - light.jpg
   - status.png
-community: ''
-documentation: ''
-homepage: ''
-license: ''
+community: 'https://www.reddit.com/r/UptimeKuma/'
+documentation: 'https://github.com/louislam/uptime-kuma/wiki'
+homepage: 'https://uptime.kuma.pet'
+license: 'MIT'
 payment:
   price: []
   share: []
