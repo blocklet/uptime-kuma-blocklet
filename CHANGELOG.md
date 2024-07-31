@@ -1,3 +1,7 @@
+## 1.23.15 (2024-7-31)
+
+- feat: support aliyun sms custom endpoint
+
 ## 1.23.14 (2024-7-16)
 
 - chore: update blocklet.yml for open source github projects
