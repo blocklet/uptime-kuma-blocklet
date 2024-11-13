@@ -42,8 +42,9 @@ interfaces:
           allowSwitchProfile: true
           blockUnauthorized: false
 screenshots:
-  - light.jpg
-  - status.png
+  - 55a61eb96c9349f016243d81f31c2a22.png
+  - 7d432967fb4f5386a911adef26310dfe.png
+  - 5ec9d72033a6c947907e1e6e74b5df33.png
 community: https://www.reddit.com/r/UptimeKuma/
 documentation: https://github.com/louislam/uptime-kuma/wiki
 homepage: https://uptime.kuma.pet
