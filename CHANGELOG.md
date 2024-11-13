@@ -1,3 +1,7 @@
+## 1.23.16 (2024-11-13)
+
+- chore: update screenshot
+
 ## 1.23.15 (2024-7-31)
 
 - feat: support aliyun sms custom endpoint
