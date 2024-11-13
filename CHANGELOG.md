@@ -1,3 +1,7 @@
+## 1.23.17 (2024-11-13)
+
+- chore: update readme
+
 ## 1.23.16 (2024-11-13)
 
 - chore: update screenshot
