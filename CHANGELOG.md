@@ -1,3 +1,7 @@
+## 1.23.18 (2025-4-21)
+
+- fix: public /metrics route
+
 ## 1.23.17 (2024-11-13)
 
 - chore: update readme

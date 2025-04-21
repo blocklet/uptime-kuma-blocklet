@@ -8,7 +8,7 @@ logo: logo.png
 author:
   name: wangshijun
 specVersion: 1.2.8
-version: 1.23.17
+version: 1.23.18
 repository:
   type: git
   url: git+https://github.com/blocklet/uptime-kuma-blocklet.git
@@ -17,12 +17,12 @@ files:
   - dist
   - public
   - db
-  - "!server/dev.js"
+  - '!server/dev.js'
 interfaces:
   - type: web
     name: publicUrl
     path: /
-    prefix: "*"
+    prefix: '*'
     port: BLOCKLET_PORT
     protocol: http
     services:
@@ -42,6 +42,7 @@ interfaces:
             - avatar
           allowSwitchProfile: true
           blockUnauthorized: false
+    proxyBehavior: service
 screenshots:
   - 55a61eb96c9349f016243d81f31c2a22.png
   - 7d432967fb4f5386a911adef26310dfe.png
@@ -56,10 +57,10 @@ payment:
 timeout:
   start: 60
 requirements:
-  server: ">=1.7.0"
-  os: "*"
-  cpu: "*"
-  nodejs: ">=14"
+  server: '>=1.7.0'
+  os: '*'
+  cpu: '*'
+  nodejs: '>=14'
 environments: []
 capabilities:
   clusterMode: false
@@ -69,3 +70,4 @@ components: []
 scripts:
   dev: npm run dev:blocklet
   postInstall: node server/hooks/post-install.js
+egress: true
