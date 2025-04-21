@@ -17,12 +17,12 @@ files:
   - dist
   - public
   - db
-  - '!server/dev.js'
+  - "!server/dev.js"
 interfaces:
   - type: web
     name: publicUrl
     path: /
-    prefix: '*'
+    prefix: "*"
     port: BLOCKLET_PORT
     protocol: http
     services:
@@ -34,6 +34,7 @@ interfaces:
             - /status/**
             - /upload/**
             - /robots.txt
+            - /metrics
           whoCanAccess: invited
           profileFields:
             - fullName
@@ -55,10 +56,10 @@ payment:
 timeout:
   start: 60
 requirements:
-  server: '>=1.7.0'
-  os: '*'
-  cpu: '*'
-  nodejs: '>=14'
+  server: ">=1.7.0"
+  os: "*"
+  cpu: "*"
+  nodejs: ">=14"
 environments: []
 capabilities:
   clusterMode: false
